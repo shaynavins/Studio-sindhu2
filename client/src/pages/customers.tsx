@@ -5,69 +5,37 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { UserPlus } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import type { Customer } from "@shared/schema";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Customers() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
 
-  const allCustomers = [
-    {
-      id: "1",
-      name: "Michael Anderson",
-      phone: "+1 234-567-8900",
-      orderStatus: "measuring" as const,
-      lastUpdated: "2 hours ago",
-    },
-    {
-      id: "2",
-      name: "Emma Williams",
-      phone: "+1 234-567-8901",
-      orderStatus: "ready" as const,
-      lastUpdated: "1 day ago",
-    },
-    {
-      id: "3",
-      name: "James Brown",
-      phone: "+1 234-567-8902",
-      orderStatus: "stitching" as const,
-      lastUpdated: "3 days ago",
-    },
-    {
-      id: "4",
-      name: "Sarah Johnson",
-      phone: "+1 234-567-8903",
-      orderStatus: "new" as const,
-      lastUpdated: "5 days ago",
-    },
-    {
-      id: "5",
-      name: "David Lee",
-      phone: "+1 234-567-8904",
-      orderStatus: "cutting" as const,
-      lastUpdated: "1 week ago",
-    },
-    {
-      id: "6",
-      name: "Lisa Chen",
-      phone: "+1 234-567-8905",
-      orderStatus: "delivered" as const,
-      lastUpdated: "2 weeks ago",
-    },
-  ];
-
-  const filteredCustomers = allCustomers.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || customer.orderStatus === statusFilter;
-    return matchesSearch && matchesStatus;
+  const { data: customers = [], isLoading } = useQuery<Customer[]>({
+    queryKey: ['/api/customers'],
   });
+
+  const filteredCustomers = customers.filter(customer => {
+    const matchesSearch = customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         customer.phone.includes(searchQuery);
+    return matchesSearch;
+  });
+
+  const getTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(date).getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffHours < 1) return "Just now";
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 14) return "1 week ago";
+    return `${Math.floor(diffDays / 7)} weeks ago`;
+  };
 
   return (
     <div className="space-y-6">
@@ -90,26 +58,20 @@ export default function Customers() {
           className="max-w-sm"
           data-testid="input-search"
         />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48" data-testid="select-status-filter">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="new">New Order</SelectItem>
-            <SelectItem value="measuring">Measuring</SelectItem>
-            <SelectItem value="cutting">Cutting</SelectItem>
-            <SelectItem value="stitching">Stitching</SelectItem>
-            <SelectItem value="ready">Ready</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
-      {filteredCustomers.length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      ) : filteredCustomers.length === 0 ? (
         <EmptyState
-          title="No customers found"
-          description="Try adjusting your search or filter criteria, or add a new customer to get started."
+          title={customers.length === 0 ? "No customers yet" : "No customers found"}
+          description={customers.length === 0 
+            ? "Get started by adding your first customer. You can store their information, measurements, and photos all in one place."
+            : "Try adjusting your search criteria, or add a new customer to get started."}
           action={{
             label: "Add Customer",
             onClick: () => setLocation("/new-customer")
@@ -120,7 +82,11 @@ export default function Customers() {
           {filteredCustomers.map(customer => (
             <CustomerCard
               key={customer.id}
-              {...customer}
+              id={customer.id}
+              name={customer.name}
+              phone={customer.phone}
+              orderStatus="new"
+              lastUpdated={getTimeAgo(customer.updatedAt)}
               onView={() => console.log('View customer:', customer.id)}
               onEdit={() => setLocation('/new-customer')}
             />

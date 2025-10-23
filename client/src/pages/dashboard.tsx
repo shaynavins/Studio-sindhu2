@@ -1,42 +1,43 @@
-import { useState } from "react";
 import { StatsCard } from "@/components/stats-card";
 import { CustomerCard } from "@/components/customer-card";
 import { Users, ShoppingBag, Clock, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { Customer } from "@shared/schema";
+import { useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const recentCustomers = [
-    {
-      id: "1",
-      name: "Michael Anderson",
-      phone: "+1 234-567-8900",
-      orderStatus: "measuring" as const,
-      lastUpdated: "2 hours ago",
-    },
-    {
-      id: "2",
-      name: "Emma Williams",
-      phone: "+1 234-567-8901",
-      orderStatus: "ready" as const,
-      lastUpdated: "1 day ago",
-    },
-    {
-      id: "3",
-      name: "James Brown",
-      phone: "+1 234-567-8902",
-      orderStatus: "stitching" as const,
-      lastUpdated: "3 days ago",
-    },
-  ];
+  const { data: customers = [], isLoading } = useQuery<Customer[]>({
+    queryKey: ['/api/customers'],
+  });
+
+  const recentCustomers = customers
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 6);
 
   const filteredCustomers = recentCustomers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const getTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(date).getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffHours < 1) return "Just now";
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 14) return "1 week ago";
+    return `${Math.floor(diffDays / 7)} weeks ago`;
+  };
 
   return (
     <div className="space-y-6">
@@ -48,26 +49,25 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total Customers"
-          value={142}
+          value={customers.length}
           icon={Users}
           description="Active customers"
-          trend={{ value: "12%", isPositive: true }}
         />
         <StatsCard
           title="Active Orders"
-          value={28}
+          value={0}
           icon={ShoppingBag}
           description="In progress"
         />
         <StatsCard
           title="Pending"
-          value={8}
+          value={0}
           icon={Clock}
           description="Awaiting pickup"
         />
         <StatsCard
           title="Completed"
-          value={456}
+          value={0}
           icon={CheckCircle}
           description="This month"
         />
@@ -90,16 +90,28 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCustomers.map(customer => (
-            <CustomerCard
-              key={customer.id}
-              {...customer}
-              onView={() => console.log('View customer:', customer.id)}
-              onEdit={() => setLocation('/new-customer')}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredCustomers.map(customer => (
+              <CustomerCard
+                key={customer.id}
+                id={customer.id}
+                name={customer.name}
+                phone={customer.phone}
+                orderStatus="new"
+                lastUpdated={getTimeAgo(customer.updatedAt)}
+                onView={() => console.log('View customer:', customer.id)}
+                onEdit={() => setLocation('/new-customer')}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
