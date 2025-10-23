@@ -58,13 +58,8 @@ export default function NewCustomer() {
 
   const saveMeasurementsMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest(`/api/customers/${customerId}/measurements`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiRequest('POST', `/api/customers/${customerId}/measurements`, data);
+      return response.json();
     },
     onSuccess: () => {
       toast({
