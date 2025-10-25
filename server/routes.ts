@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCustomerSchema, insertOrderSchema } from "@shared/schema";
-import { createCustomerFolder, uploadImageToDrive, createMeasurementSheet, addMeasurementToSheet } from "./google-services";
+import { uploadImageToDrive } from "./google-services";
 import multer from "multer";
 import { z } from "zod";
 
@@ -40,17 +40,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const customer = await storage.createCustomer(customerData);
       
-      let driveFolderId: string | null = null;
-      let sheetId: string | null = null;
-      
       try {
-        driveFolderId = await createCustomerFolder(customer.name, customer.id);
-        
         const files = req.files as Express.Multer.File[];
-        if (files && files.length > 0) {
+        if (files && files.length > 0 && customer.driveFolderId) {
           for (const file of files) {
             await uploadImageToDrive(
-              driveFolderId,
+              customer.driveFolderId,
               file.originalname,
               file.mimetype,
               file.buffer
@@ -58,19 +53,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        sheetId = await createMeasurementSheet(customer.name, customer.id);
-        
-        const updatedCustomer = await storage.updateCustomer(customer.id, {
-          driveFolderId,
-          sheetId
-        });
-        
-        res.status(201).json(updatedCustomer);
+        res.status(201).json(customer);
       } catch (googleError: any) {
         console.error('Google services error:', googleError);
         res.status(201).json({
           ...customer,
-          warning: 'Customer created but Google integration failed: ' + googleError.message
+          warning: 'Customer created but image upload failed: ' + googleError.message
         });
       }
     } catch (error: any) {
@@ -93,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Customer does not have a measurement sheet" });
       }
 
-      await addMeasurementToSheet(customer.sheetId, req.body);
+      await storage.addMeasurements(customer.id, req.body);
       
       const orderData = insertOrderSchema.parse({
         customerId: customer.id,

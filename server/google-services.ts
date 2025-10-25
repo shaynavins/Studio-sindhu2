@@ -57,7 +57,7 @@ export async function createMeasurementSheet(
       },
       sheets: [{
         properties: {
-          title: 'Measurements'
+          title: 'Sheet1'
         }
       }]
     }
@@ -67,7 +67,7 @@ export async function createMeasurementSheet(
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
-    range: 'Measurements!A1:J1',
+    range: 'Sheet1!A1:J1',
     valueInputOption: 'RAW',
     requestBody: {
       values: [['Date', 'Garment Type', 'Chest', 'Waist', 'Hips', 'Shoulder', 'Sleeves', 'Length', 'Inseam', 'Notes']]
@@ -97,7 +97,7 @@ export async function addMeasurementToSheet(
   
   await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: 'Measurements!A:J',
+    range: 'Sheet1!A:J',
     valueInputOption: 'RAW',
     requestBody: {
       values: [[

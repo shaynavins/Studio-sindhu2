@@ -24,7 +24,7 @@ export function setupAuth(app: Express) {
   passport.use('google',
     new GoogleStrategy(
       {
-        clientID: process.env.GOOGLE_CLIENT_ID || '',
+        clientID: process.env.GOOGLE_CLIENT_ID || 'dummy_client_id',
         clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
         callbackURL: process.env.CALLBACK_URL || 'http://localhost:5000/oauth2callback',
       },
@@ -36,7 +36,14 @@ export function setupAuth(app: Express) {
           return done(null, false, { message: 'Unauthorized email' });
         }
         
-        return done(null, { ...profile, role: 'admin' });
+        const user = {
+          id: profile.id,
+          name: profile.displayName || email?.split('@')[0] || 'Admin',
+          email,
+          role: 'admin' as const
+        };
+        
+        return done(null, user);
       }
     )
   );

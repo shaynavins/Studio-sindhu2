@@ -31,11 +31,6 @@ const menuItems = [
     url: "/new-customer",
     icon: UserPlus,
   },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
 ];
 
 interface AppSidebarProps {
@@ -51,10 +46,10 @@ export function AppSidebar({ userRole = "tailor", userName = "John Doe" }: AppSi
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-semibold text-sm">TH</span>
+            <span className="text-primary-foreground font-semibold text-sm">SD</span>
           </div>
           <div>
-            <h2 className="font-semibold text-base">TailorHub</h2>
+            <h2 className="font-semibold text-base">Sindhu Designer Studio</h2>
             <p className="text-xs text-muted-foreground">Boutique Manager</p>
           </div>
         </div>
@@ -82,11 +77,11 @@ export function AppSidebar({ userRole = "tailor", userName = "John Doe" }: AppSi
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarFallback className="bg-primary text-primary-foreground">
-              {userName.split(' ').map(n => n[0]).join('')}
+              {String(userName || 'User').split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{userName}</p>
+            <p className="text-sm font-medium truncate">{userName || 'User'}</p>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs capitalize">
                 {userRole}
