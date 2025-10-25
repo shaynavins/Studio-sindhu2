@@ -34,7 +34,7 @@ export default function AdminLogin() {
           title: "Login successful",
           description: "Welcome back, admin!",
         });
-        setLocation('/');
+        setLocation('/dashboard');
       }
     } catch (error: any) {
       toast({

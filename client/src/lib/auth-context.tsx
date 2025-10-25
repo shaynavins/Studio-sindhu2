@@ -39,11 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
       } else {
         setUser(null);
-        // Redirect to appropriate login page if not authenticated
-        const path = window.location.pathname;
-        if (!path.includes('/login')) {
-          setLocation('/tailor/login');
-        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);

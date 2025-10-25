@@ -92,7 +92,7 @@ export function setupAuth(app: Express) {
     '/oauth2callback',
     passport.authenticate('google', { failureRedirect: '/login' }),
     (req, res) => {
-      res.redirect('/');
+      res.redirect('/dashboard');
     }
   );
 
