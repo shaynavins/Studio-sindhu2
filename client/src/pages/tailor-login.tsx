@@ -20,6 +20,7 @@ export default function TailorLogin() {
       const response = await fetch('/auth/tailor/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ userCode }),
       });
 
@@ -34,7 +35,10 @@ export default function TailorLogin() {
           title: "Login successful",
           description: `Welcome back, ${data.user.name || 'Tailor'}!`,
         });
-        setLocation('/dashboard');
+        // Small delay to ensure session is set
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
       }
     } catch (error: any) {
       toast({

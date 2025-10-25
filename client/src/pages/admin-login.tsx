@@ -21,6 +21,7 @@ export default function AdminLogin() {
       const response = await fetch('/auth/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
@@ -34,7 +35,10 @@ export default function AdminLogin() {
           title: "Login successful",
           description: "Welcome back, admin!",
         });
-        setLocation('/dashboard');
+        // Small delay to ensure session is set
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
       }
     } catch (error: any) {
       toast({

@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useLocation } from "wouter";
 
 type User = {
   id: string;
@@ -13,26 +12,25 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  refreshAuth: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  refreshAuth: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
 
   const checkAuth = async () => {
     try {
-      const response = await fetch('/auth/status');
+      const response = await fetch('/auth/status', {
+        credentials: 'include',
+      });
       const data = await response.json();
       
       if (data.authenticated) {
@@ -48,8 +46,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const refreshAuth = async () => {
+    setIsLoading(true);
+    await checkAuth();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );
