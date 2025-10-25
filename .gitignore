@@ -4,3 +4,16 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Google API credentials
+client_secret.json
+token.json
+
+# Database
+*.db
+*.sqlite

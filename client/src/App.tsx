@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
 import NewCustomer from "@/pages/new-customer";
 import EditCustomer from "@/pages/edit-customer";
+import NewOrder from "@/pages/new-order";
 import NotFound from "@/pages/not-found";
 import AdminLogin from "@/pages/admin-login";
 import TailorLogin from "@/pages/tailor-login";
@@ -45,6 +46,11 @@ function Router() {
       <Route path="/edit-customer/:id">
         <ProtectedRoute>
           <EditCustomer />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/new-order">
+        <ProtectedRoute>
+          <NewOrder />
         </ProtectedRoute>
       </Route>
       <Route component={NotFound} />

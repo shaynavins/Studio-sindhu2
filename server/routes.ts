@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertOrderSchema } from "@shared/schema";
-import { uploadImageToDrive } from "./google-services";
+import { insertCustomerSchema, insertOrderSchema, insertMeasurementSchema } from "@shared/schema";
+import { uploadImageToDrive, addMeasurementToSheet, getMeasurementsFromSheet } from "./google-services";
 import multer from "multer";
 import { z } from "zod";
 
@@ -30,6 +30,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(customer);
     } catch (error: any) {
       console.error('Error fetching customer:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/customers/phone/:phone", async (req, res) => {
+    try {
+      const customer = await storage.getCustomerByPhone(req.params.phone);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      res.json(customer);
+    } catch (error: any) {
+      console.error('Error fetching customer by phone:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -83,8 +96,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.addMeasurements(customer.id, req.body);
       
+      const orderNumber = `ORD-${Date.now()}`;
+      
       const orderData = insertOrderSchema.parse({
+        orderNumber,
         customerId: customer.id,
+        customerPhone: customer.phone,
         garmentType: req.body.garmentType,
         status: "measuring",
         notes: req.body.notes || null,
@@ -106,14 +123,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders", async (req, res) => {
     try {
       const customerId = req.query.customerId as string | undefined;
-      if (customerId) {
+      const phone = req.query.phone as string | undefined;
+      
+      if (phone) {
+        const orders = await storage.getOrdersByPhone(phone);
+        res.json(orders);
+      } else if (customerId) {
         const orders = await storage.getOrdersByCustomer(customerId);
         res.json(orders);
       } else {
-        res.status(400).json({ error: "customerId query parameter required" });
+        res.status(400).json({ error: "customerId or phone query parameter required" });
       }
     } catch (error: any) {
       console.error('Error fetching orders:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/orders", async (req, res) => {
+    try {
+      const { customerPhone, measurements, ...orderData } = req.body;
+      
+      if (!customerPhone) {
+        return res.status(400).json({ error: "Customer phone number is required" });
+      }
+
+      // Get or create customer
+      let customer = await storage.getCustomerByPhone(customerPhone);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found. Please create customer first." });
+      }
+
+      // Generate order number
+      const orderNumber = `ORD-${Date.now()}`;
+
+      // Create order
+      const order = await storage.createOrder({
+        ...orderData,
+        orderNumber,
+        customerId: customer.id,
+        customerPhone,
+      });
+
+      // If measurements provided, add them to sheet
+      if (measurements && customer.sheetId) {
+        await addMeasurementToSheet(customer.sheetId, orderNumber, {
+          ...measurements,
+          status: order.status,
+        });
+
+        // Create measurement record
+        await storage.createMeasurement({
+          orderId: order.id,
+          ...measurements,
+        });
+      }
+
+      res.status(201).json(order);
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   });
@@ -124,6 +195,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error: any) {
       console.error('Error updating order:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/measurements", async (req, res) => {
+    try {
+      const phone = req.query.phone as string | undefined;
+      const orderId = req.query.orderId as string | undefined;
+      
+      if (phone) {
+        const measurements = await storage.getMeasurementsByPhone(phone);
+        res.json(measurements);
+      } else if (orderId) {
+        const measurements = await storage.getMeasurementsByOrder(orderId);
+        res.json(measurements);
+      } else {
+        res.status(400).json({ error: "phone or orderId query parameter required" });
+      }
+    } catch (error: any) {
+      console.error('Error fetching measurements:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/measurements/history/:phone", async (req, res) => {
+    try {
+      const phone = req.params.phone;
+      const customer = await storage.getCustomerByPhone(phone);
+      
+      if (!customer || !customer.sheetId) {
+        return res.status(404).json({ error: "Customer not found or no measurements available" });
+      }
+
+      const measurements = await getMeasurementsFromSheet(customer.sheetId);
+      res.json(measurements);
+    } catch (error: any) {
+      console.error('Error fetching measurement history:', error);
       res.status(500).json({ error: error.message });
     }
   });

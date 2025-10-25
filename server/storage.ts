@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Customer, type InsertCustomer, type Order, type InsertOrder } from "@shared/schema";
+import { type User, type InsertUser, type Customer, type InsertCustomer, type Order, type InsertOrder, type Measurement, type InsertMeasurement } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -7,25 +7,35 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   getCustomer(id: string): Promise<Customer | undefined>;
+  getCustomerByPhone(phone: string): Promise<Customer | undefined>;
   getAllCustomers(tailorId?: string): Promise<Customer[]>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<Customer>): Promise<Customer>;
   
   getOrder(id: string): Promise<Order | undefined>;
   getOrdersByCustomer(customerId: string): Promise<Order[]>;
+  getOrdersByPhone(phone: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: string, order: Partial<Order>): Promise<Order>;
+  
+  getMeasurement(id: string): Promise<Measurement | undefined>;
+  getMeasurementsByOrder(orderId: string): Promise<Measurement[]>;
+  getMeasurementsByPhone(phone: string): Promise<Measurement[]>;
+  createMeasurement(measurement: InsertMeasurement): Promise<Measurement>;
+  addMeasurements(customerId: string, data: any): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private customers: Map<string, Customer>;
   private orders: Map<string, Order>;
+  private measurements: Map<string, Measurement>;
 
   constructor() {
     this.users = new Map();
     this.customers = new Map();
     this.orders = new Map();
+    this.measurements = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -51,6 +61,10 @@ export class MemStorage implements IStorage {
 
   async getCustomer(id: string): Promise<Customer | undefined> {
     return this.customers.get(id);
+  }
+
+  async getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+    return Array.from(this.customers.values()).find(c => c.phone === phone);
   }
 
   async getAllCustomers(tailorId?: string): Promise<Customer[]> {
@@ -100,6 +114,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getOrdersByPhone(phone: string): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      (order) => order.customerPhone === phone
+    );
+  }
+
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     const id = randomUUID();
     const now = new Date();
@@ -125,6 +145,40 @@ export class MemStorage implements IStorage {
     };
     this.orders.set(id, updated);
     return updated;
+  }
+
+  async getMeasurement(id: string): Promise<Measurement | undefined> {
+    return this.measurements.get(id);
+  }
+
+  async getMeasurementsByOrder(orderId: string): Promise<Measurement[]> {
+    return Array.from(this.measurements.values()).filter(
+      (m) => m.orderId === orderId
+    );
+  }
+
+  async getMeasurementsByPhone(phone: string): Promise<Measurement[]> {
+    const orders = await this.getOrdersByPhone(phone);
+    const orderIds = orders.map(o => o.id);
+    return Array.from(this.measurements.values()).filter(
+      (m) => orderIds.includes(m.orderId)
+    );
+  }
+
+  async createMeasurement(insertMeasurement: InsertMeasurement): Promise<Measurement> {
+    const id = randomUUID();
+    const now = new Date();
+    const measurement: Measurement = {
+      ...insertMeasurement,
+      id,
+      createdAt: now,
+    };
+    this.measurements.set(id, measurement);
+    return measurement;
+  }
+
+  async addMeasurements(_customerId: string, _data: any): Promise<void> {
+    // Legacy method for compatibility
   }
 }
 

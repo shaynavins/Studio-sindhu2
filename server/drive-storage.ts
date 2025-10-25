@@ -1,6 +1,8 @@
-import type { Customer, InsertCustomer, InsertOrder, Order, User, InsertUser } from "@shared/schema";
-import type { IStorage } from "./storage-types";
+import type { Customer, InsertCustomer, InsertOrder, Order, User, InsertUser, Measurement, InsertMeasurement } from "@shared/schema";
+import type { IStorage } from "./storage";
 import { getGoogleDriveClient, getGoogleSheetsClient } from "./google-clients.js";
+import { createCustomerFolder, findCustomerFolder, createMeasurementSheet, findMeasurementSheet, addMeasurementToSheet, getMeasurementsFromSheet, uploadImageToDrive } from "./google-services.js";
+import { randomUUID } from "crypto";
 
 export type MeasurementData = {
   item?: string;
@@ -15,101 +17,35 @@ export type MeasurementData = {
   notes?: string | null;
 };
 
-// Helper: get or create root folder
-async function getOrCreateRootFolder(): Promise<string> {
-  const drive = await getGoogleDriveClient();
-  const folderName = "Customers";
-
-  const res = await drive.files.list({
-    q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and 'root' in parents`,
-    fields: "files(id, name)",
-  });
-
-  if (res.data.files?.length) return res.data.files[0].id!;
-
-  const folder = await drive.files.create({
-    requestBody: { name: folderName, mimeType: "application/vnd.google-apps.folder" },
-    fields: "id",
-  });
-
-  return folder.data.id!;
-}
-
-// Create customer folder + measurement sheet
-async function createCustomerFolderAndSheet(customerName: string) {
-  const drive = await getGoogleDriveClient();
-  const sheets = await getGoogleSheetsClient();
-  const rootFolderId = await getOrCreateRootFolder();
-
-  // Customer folder
-  const folder = await drive.files.create({
-    requestBody: { name: customerName, parents: [rootFolderId], mimeType: "application/vnd.google-apps.folder" },
-    fields: "id",
-  });
-  const folderId = folder.data.id!;
-
-  // Google Sheet
-  const spreadsheet = await sheets.spreadsheets.create({
-    requestBody: { properties: { title: `${customerName} Measurements` } },
-  });
-  const sheetId = spreadsheet.data.spreadsheetId!;
-
-  // Move sheet to folder
-  await drive.files.update({ fileId: sheetId, addParents: folderId, removeParents: "root" });
-
-  // Add header row
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: sheetId,
-    range: "Sheet1!A1",
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [
-        ["Item", "Garment Type", "Chest", "Waist", "Hips", "Inseam", "Length", "Shoulder", "Sleeves", "Notes"],
-      ],
-    },
-  });
-
-  return { folderId, sheetId };
-}
 
 // DriveStorage implementation
 export class DriveStorage implements IStorage {
-  private rootFolderId: string | null = null;
-
-  private async getRootFolderId() {
-    if (!this.rootFolderId) this.rootFolderId = await getOrCreateRootFolder();
-    return this.rootFolderId;
-  }
+  private orderCounter: number = 1;
 
   // Customers
   async getAllCustomers(): Promise<Customer[]> {
     const drive = await getGoogleDriveClient();
-    const rootId = await this.getRootFolderId();
 
     const res = await drive.files.list({
-      q: `'${rootId}' in parents and mimeType='application/vnd.google-apps.folder'`,
+      q: `mimeType='application/vnd.google-apps.folder' and name contains '-'`,
       fields: "files(id, name)",
     });
 
-    // For each customer folder, find the measurement sheet
     const customers = await Promise.all((res.data.files || []).map(async f => {
-      // Find the sheet in this folder
-      const sheetRes = await drive.files.list({
-        q: `'${f.id}' in parents and mimeType='application/vnd.google-apps.spreadsheet'`,
-        fields: "files(id)",
-      });
-      
-      const sheetId = sheetRes.data.files?.[0]?.id || null;
+      const sheetId = await findMeasurementSheet(f.id!);
+      const nameParts = f.name!.split(' - ');
+      const phone = nameParts[0];
+      const name = nameParts.slice(1).join(' - ');
 
       return {
         id: f.id!,
-        name: f.name!,
+        name: name || 'Unknown',
+        phone: phone,
         driveFolderId: f.id!,
         sheetId,
         createdAt: new Date(),
         updatedAt: new Date(),
         tailorId: "",
-        phone: "",
         email: null,
         address: null,
       };
@@ -119,7 +55,22 @@ export class DriveStorage implements IStorage {
   }
 
   async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
-    const { folderId, sheetId } = await createCustomerFolderAndSheet(insertCustomer.name);
+    if (!insertCustomer.phone) {
+      throw new Error('Phone number is required');
+    }
+
+    // Check if customer already exists
+    let folderId = await findCustomerFolder(insertCustomer.phone);
+    let sheetId: string | null = null;
+
+    if (folderId) {
+      // Customer exists, find their sheet
+      sheetId = await findMeasurementSheet(folderId);
+    } else {
+      // Create new customer folder
+      folderId = await createCustomerFolder(insertCustomer.phone, insertCustomer.name);
+      sheetId = await createMeasurementSheet(insertCustomer.phone, insertCustomer.name, folderId);
+    }
 
     return {
       id: folderId,
@@ -129,7 +80,7 @@ export class DriveStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
       tailorId: insertCustomer.tailorId || "",
-      phone: insertCustomer.phone || "",
+      phone: insertCustomer.phone,
       email: insertCustomer.email ?? null,
       address: insertCustomer.address ?? null,
     };
@@ -140,13 +91,19 @@ export class DriveStorage implements IStorage {
     return customers.find(c => c.id === id);
   }
 
+  async getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+    const customers = await this.getAllCustomers();
+    return customers.find(c => c.phone === phone);
+  }
+
   async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer> {
     const drive = await getGoogleDriveClient();
     const customer = await this.getCustomer(id);
     if (!customer) throw new Error("Customer not found");
 
     if (updates.name && updates.name !== customer.name) {
-      await drive.files.update({ fileId: customer.driveFolderId!, requestBody: { name: updates.name } });
+      const newName = `${customer.phone} - ${updates.name}`;
+      await drive.files.update({ fileId: customer.driveFolderId!, requestBody: { name: newName } });
     }
 
     return { ...customer, ...updates, updatedAt: new Date() };
@@ -157,45 +114,105 @@ export class DriveStorage implements IStorage {
     const customer = await this.getCustomer(customerId);
     if (!customer || !customer.sheetId) throw new Error("Customer or sheet not found");
 
-    const sheets = await getGoogleSheetsClient();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: customer.sheetId,
-      range: "Sheet1!A2",
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [[
-          data.item || "",
-          data.garmentType || "",
-          data.chest ?? "",
-          data.waist ?? "",
-          data.hips ?? "",
-          data.inseam ?? "",
-          data.length ?? "",
-          data.shoulder ?? "",
-          data.sleeves ?? "",
-          data.notes ?? "",
-        ]],
-      },
-    });
+    const orderNumber = `ORD-${Date.now()}`;
+    await addMeasurementToSheet(customer.sheetId, orderNumber, data);
   }
 
   // Orders
-  async getOrder(_id: string): Promise<Order | undefined> { return undefined; }
-  async getOrdersByCustomer(_customerId: string): Promise<Order[]> { return []; }
+  async getOrder(_id: string): Promise<Order | undefined> { 
+    return undefined; 
+  }
+  
+  async getOrdersByCustomer(_customerId: string): Promise<Order[]> { 
+    return []; 
+  }
+
+  async getOrdersByPhone(phone: string): Promise<Order[]> {
+    const customer = await this.getCustomerByPhone(phone);
+    if (!customer || !customer.sheetId) return [];
+
+    const measurements = await getMeasurementsFromSheet(customer.sheetId);
+    return measurements.map(m => ({
+      id: randomUUID(),
+      orderNumber: m.orderNumber,
+      customerId: customer.id,
+      customerPhone: phone,
+      garmentType: m.garmentType,
+      status: 'new' as const,
+      notes: m.notes || null,
+      deliveryDate: null,
+      measurementSetId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+  }
 
   async createOrder(order: InsertOrder): Promise<Order> {
+    const orderNumber = order.orderNumber || `ORD-${Date.now()}`;
     return {
-      ...order as Omit<Order, "id" | "createdAt" | "updatedAt">,
-      id: "mock-" + Math.random().toString(36).substring(7),
+      ...order,
+      id: randomUUID(),
+      orderNumber,
       createdAt: new Date(),
       updatedAt: new Date(),
       status: order.status || "new",
       notes: order.notes ?? null,
       deliveryDate: order.deliveryDate ?? null,
+      measurementSetId: order.measurementSetId ?? null,
     };
   }
 
-  async updateOrder(_id: string, _order: Partial<Order>): Promise<Order> { throw new Error("Not implemented"); }
+  async updateOrder(_id: string, _order: Partial<Order>): Promise<Order> { 
+    throw new Error("Not implemented"); 
+  }
+
+  // Measurement methods
+  async getMeasurement(_id: string): Promise<Measurement | undefined> {
+    return undefined;
+  }
+
+  async getMeasurementsByOrder(_orderId: string): Promise<Measurement[]> {
+    return [];
+  }
+
+  async getMeasurementsByPhone(phone: string): Promise<Measurement[]> {
+    const customer = await this.getCustomerByPhone(phone);
+    if (!customer || !customer.sheetId) return [];
+
+    const measurements = await getMeasurementsFromSheet(customer.sheetId);
+    return measurements.map(m => ({
+      id: randomUUID(),
+      orderId: m.orderNumber,
+      garmentType: m.garmentType,
+      chest: m.chest || null,
+      waist: m.waist || null,
+      hips: m.hips || null,
+      shoulder: m.shoulder || null,
+      sleeves: m.sleeves || null,
+      length: m.length || null,
+      inseam: m.inseam || null,
+      notes: m.notes || null,
+      sheetRowId: null,
+      createdAt: new Date(),
+    }));
+  }
+
+  async createMeasurement(measurement: InsertMeasurement): Promise<Measurement> {
+    return {
+      ...measurement,
+      id: randomUUID(),
+      chest: measurement.chest ?? null,
+      waist: measurement.waist ?? null,
+      hips: measurement.hips ?? null,
+      shoulder: measurement.shoulder ?? null,
+      sleeves: measurement.sleeves ?? null,
+      length: measurement.length ?? null,
+      inseam: measurement.inseam ?? null,
+      notes: measurement.notes ?? null,
+      sheetRowId: measurement.sheetRowId ?? null,
+      createdAt: new Date(),
+    };
+  }
 
   // Users
   async getUser(_id: string): Promise<User | undefined> { return undefined; }

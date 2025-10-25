@@ -1,4 +1,4 @@
-import { Home, Users, UserPlus, Settings, LayoutDashboard } from "lucide-react";
+import { Home, Users, UserPlus, Settings, LayoutDashboard, ShoppingCart } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -30,6 +30,11 @@ const menuItems = [
     title: "New Customer",
     url: "/new-customer",
     icon: UserPlus,
+  },
+  {
+    title: "New Order",
+    url: "/new-order",
+    icon: ShoppingCart,
   },
 ];
 
