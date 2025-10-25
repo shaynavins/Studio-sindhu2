@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as LocalStrategy } from 'passport-local';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 import { Express } from 'express';
 import { db } from './db';
 import { users } from '@shared/schema';
@@ -65,15 +66,23 @@ export function setupAuth(app: Express) {
       }
     )
   );
-  // Session middleware
+  // Session middleware with PostgreSQL store
+  const PgStore = connectPgSimple(session);
+  const sessionStore = new PgStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: true,
+  });
+
   app.use(
     session({
+      store: sessionStore,
       secret: process.env.SESSION_SECRET || 'your-secret-key',
       resave: false,
       saveUninitialized: false,
       cookie: {
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
       },
     })
   );
