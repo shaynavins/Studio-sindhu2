@@ -76,11 +76,17 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Serve static files, but skip API/auth/health routes
+  app.use((req, res, next) => {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/auth') || req.originalUrl.startsWith('/oauth') || req.originalUrl.startsWith('/health')) {
+      return next();
+    }
+    express.static(distPath)(req, res, next);
+  });
 
   // fall through to index.html if the file doesn't exist (but not for API/auth routes)
   app.use("*", (req, res, next) => {
-    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/auth') || req.originalUrl.startsWith('/oauth')) {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/auth') || req.originalUrl.startsWith('/oauth') || req.originalUrl.startsWith('/health')) {
       return next();
     }
     res.sendFile(path.resolve(distPath, "index.html"));
