@@ -1,9 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { setupAuth } from "./auth";
+import 'dotenv/config';
+
 
 const app = express();
-
+app.use(express.json());
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
@@ -15,6 +18,14 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+
+// Health check endpoint (before auth)
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Setup authentication
+setupAuth(app);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -73,9 +84,9 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host: "0.0.0.0", // bind to all interfaces for cloud deployment
   }, () => {
     log(`serving on port ${port}`);
   });
+
 })();
