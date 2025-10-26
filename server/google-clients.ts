@@ -2,6 +2,9 @@ import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { db } from './db.js';
+import { oauthTokens } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,9 +13,17 @@ let driveConnectionSettings: any;
 let sheetsConnectionSettings: any;
 let oauth2Client: any;
 
-// Check if running locally or on Replit
-function isLocalEnvironment() {
-  return !process.env.REPLIT_CONNECTORS_HOSTNAME && !process.env.REPL_IDENTITY;
+// Check environment type: local (dev with files), replit (with connectors), or production (with database)
+function getEnvironmentType(): 'local' | 'replit' | 'production' {
+  if (process.env.REPLIT_CONNECTORS_HOSTNAME || process.env.REPL_IDENTITY) {
+    return 'replit';
+  }
+  // Check if we have local token files
+  const tokenPath = path.join(__dirname, '..', 'token.json');
+  if (fs.existsSync(tokenPath)) {
+    return 'local';
+  }
+  return 'production';
 }
 
 // Get OAuth2 client for local development
@@ -46,10 +57,67 @@ function getLocalOAuth2Client() {
   return oauth2Client;
 }
 
+// Get or refresh tokens from database
+async function getTokenFromDatabase(service: string) {
+  const [tokenRecord] = await db
+    .select()
+    .from(oauthTokens)
+    .where(eq(oauthTokens.service, service))
+    .limit(1);
+
+  if (!tokenRecord) {
+    return null;
+  }
+
+  // Check if token is expired or about to expire (within 5 minutes)
+  if (tokenRecord.expiryDate && new Date(tokenRecord.expiryDate).getTime() < Date.now() + 5 * 60 * 1000) {
+    // Token expired or expiring soon, refresh it
+    if (tokenRecord.refreshToken) {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.CALLBACK_URL
+      );
+      oauth2Client.setCredentials({
+        refresh_token: tokenRecord.refreshToken,
+      });
+
+      try {
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        
+        // Update token in database
+        await db
+          .update(oauthTokens)
+          .set({
+            accessToken: credentials.access_token!,
+            expiryDate: credentials.expiry_date ? new Date(credentials.expiry_date) : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(oauthTokens.id, tokenRecord.id));
+
+        return credentials.access_token;
+      } catch (error) {
+        console.error('Error refreshing token:', error);
+        return null;
+      }
+    }
+    return null;
+  }
+
+  return tokenRecord.accessToken;
+}
+
 async function getDriveAccessToken() {
-  if (isLocalEnvironment()) {
+  const envType = getEnvironmentType();
+  
+  if (envType === 'local') {
     // Use local token.json
     return null; // Return null to use OAuth2Client directly
+  }
+  
+  if (envType === 'production') {
+    // Use database tokens
+    return await getTokenFromDatabase('google-drive');
   }
 
   if (driveConnectionSettings && driveConnectionSettings.settings.expires_at && new Date(driveConnectionSettings.settings.expires_at).getTime() > Date.now()) {
@@ -86,9 +154,16 @@ async function getDriveAccessToken() {
 }
 
 async function getSheetsAccessToken() {
-  if (isLocalEnvironment()) {
+  const envType = getEnvironmentType();
+  
+  if (envType === 'local') {
     // Use local token.json
     return null; // Return null to use OAuth2Client directly
+  }
+  
+  if (envType === 'production') {
+    // Use database tokens
+    return await getTokenFromDatabase('google-sheets');
   }
 
   if (sheetsConnectionSettings && sheetsConnectionSettings.settings.expires_at && new Date(sheetsConnectionSettings.settings.expires_at).getTime() > Date.now()) {
@@ -125,7 +200,9 @@ async function getSheetsAccessToken() {
 }
 
 export async function getGoogleDriveClient() {
-  if (isLocalEnvironment()) {
+  const envType = getEnvironmentType();
+  
+  if (envType === 'local') {
     const auth = getLocalOAuth2Client();
     return google.drive({ version: 'v3', auth });
   }
@@ -140,7 +217,9 @@ export async function getGoogleDriveClient() {
 }
 
 export async function getGoogleSheetsClient() {
-  if (isLocalEnvironment()) {
+  const envType = getEnvironmentType();
+  
+  if (envType === 'local') {
     const auth = getLocalOAuth2Client();
     return google.sheets({ version: 'v4', auth });
   }

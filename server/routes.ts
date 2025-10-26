@@ -1,14 +1,127 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertOrderSchema, insertMeasurementSchema } from "@shared/schema";
+import { insertCustomerSchema, insertOrderSchema, insertMeasurementSchema, oauthTokens } from "@shared/schema";
 import { uploadImageToDrive, addMeasurementToSheet, getMeasurementsFromSheet } from "./google-services";
 import multer from "multer";
 import { z } from "zod";
+import { google } from "googleapis";
+import { db } from "./db.js";
+import { eq } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // OAuth initiation endpoint
+  app.get("/api/auth/google", (req, res) => {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.CALLBACK_URL) {
+      return res.status(500).json({ error: "OAuth credentials not configured" });
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.CALLBACK_URL
+    );
+
+    const scopes = [
+      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/spreadsheets',
+    ];
+
+    const url = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: scopes,
+      prompt: 'consent', // Force consent to get refresh token
+    });
+
+    res.redirect(url);
+  });
+
+  // OAuth callback endpoint
+  app.get("/oauth2callback", async (req, res) => {
+    const code = req.query.code as string;
+
+    if (!code) {
+      return res.status(400).send("No authorization code provided");
+    }
+
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.CALLBACK_URL
+      );
+
+      const { tokens } = await oauth2Client.getToken(code);
+
+      // Store tokens in database
+      const tokenData = {
+        service: 'google-drive',
+        accessToken: tokens.access_token!,
+        refreshToken: tokens.refresh_token || null,
+        expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+        scope: tokens.scope || null,
+        tokenType: tokens.token_type || 'Bearer',
+      };
+
+      // Check if token exists, update or insert
+      const [existingToken] = await db
+        .select()
+        .from(oauthTokens)
+        .where(eq(oauthTokens.service, 'google-drive'))
+        .limit(1);
+
+      if (existingToken) {
+        await db
+          .update(oauthTokens)
+          .set({ ...tokenData, updatedAt: new Date() })
+          .where(eq(oauthTokens.id, existingToken.id));
+      } else {
+        await db.insert(oauthTokens).values(tokenData);
+      }
+
+      res.send(`
+        <html>
+          <head><title>Authorization Success</title></head>
+          <body>
+            <h1>✅ Google Drive Authorization Successful!</h1>
+            <p>You can close this window and return to your application.</p>
+            <script>setTimeout(() => window.close(), 3000);</script>
+          </body>
+        </html>
+      `);
+    } catch (error: any) {
+      console.error('Error during OAuth callback:', error);
+      res.status(500).send(`Authorization failed: ${error.message}`);
+    }
+  });
+
+  // Check OAuth status endpoint
+  app.get("/api/auth/status", async (req, res) => {
+    try {
+      const [token] = await db
+        .select()
+        .from(oauthTokens)
+        .where(eq(oauthTokens.service, 'google-drive'))
+        .limit(1);
+
+      if (!token) {
+        return res.json({ connected: false });
+      }
+
+      const isExpired = token.expiryDate && new Date(token.expiryDate).getTime() < Date.now();
+      res.json({
+        connected: true,
+        expiresAt: token.expiryDate,
+        isExpired,
+        hasRefreshToken: !!token.refreshToken,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   app.get("/api/customers", async (req, res) => {
     try {
