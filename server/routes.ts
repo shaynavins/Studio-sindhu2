@@ -48,6 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      console.log('OAuth callback - Starting token exchange...');
+      
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
@@ -55,6 +57,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const { tokens } = await oauth2Client.getToken(code);
+      console.log('OAuth callback - Received tokens from Google:', {
+        hasAccessToken: !!tokens.access_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        expiryDate: tokens.expiry_date,
+      });
 
       // Store tokens in database
       const tokenData = {
@@ -76,12 +83,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .limit(1);
 
       if (existingToken) {
+        console.log('OAuth callback - Updating existing token...');
         await db
           .update(oauthTokens)
           .set({ ...tokenData, updatedAt: new Date() })
           .where(eq(oauthTokens.id, existingToken.id));
+        console.log('OAuth callback - Token updated successfully');
       } else {
+        console.log('OAuth callback - Inserting new token...');
         await db.insert(oauthTokens).values(tokenData);
+        console.log('OAuth callback - Token inserted successfully');
       }
 
       res.send(`
