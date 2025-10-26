@@ -126,8 +126,24 @@ export class DriveStorage implements IStorage {
     return undefined; 
   }
   
-  async getOrdersByCustomer(_customerId: string): Promise<Order[]> { 
-    return []; 
+  async getOrdersByCustomer(customerId: string): Promise<Order[]> {
+    const customer = await this.getCustomer(customerId);
+    if (!customer || !customer.sheetId) return [];
+
+    const measurements = await getMeasurementsFromSheet(customer.sheetId);
+    return measurements.map(m => ({
+      id: randomUUID(),
+      orderNumber: m.orderNumber,
+      customerId: customer.id,
+      customerPhone: customer.phone,
+      garmentType: m.garmentType,
+      status: 'new' as const,
+      notes: m.notes || null,
+      deliveryDate: null,
+      measurementSetId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
   }
 
   async getOrdersByPhone(phone: string): Promise<Order[]> {
@@ -180,6 +196,28 @@ export class DriveStorage implements IStorage {
 
   async getMeasurementsByPhone(phone: string): Promise<Measurement[]> {
     const customer = await this.getCustomerByPhone(phone);
+    if (!customer || !customer.sheetId) return [];
+
+    const measurements = await getMeasurementsFromSheet(customer.sheetId);
+    return measurements.map(m => ({
+      id: randomUUID(),
+      orderId: m.orderNumber,
+      garmentType: m.garmentType,
+      chest: m.chest || null,
+      waist: m.waist || null,
+      hips: m.hips || null,
+      shoulder: m.shoulder || null,
+      sleeves: m.sleeves || null,
+      length: m.length || null,
+      inseam: m.inseam || null,
+      notes: m.notes || null,
+      sheetRowId: null,
+      createdAt: new Date(),
+    }));
+  }
+
+  async getMeasurementsByCustomer(customerId: string): Promise<Measurement[]> {
+    const customer = await this.getCustomer(customerId);
     if (!customer || !customer.sheetId) return [];
 
     const measurements = await getMeasurementsFromSheet(customer.sheetId);
