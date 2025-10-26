@@ -64,6 +64,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
         scope: tokens.scope || null,
         tokenType: tokens.token_type || 'Bearer',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       // Check if token exists, update or insert
