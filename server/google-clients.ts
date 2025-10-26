@@ -162,8 +162,8 @@ async function getSheetsAccessToken() {
   }
   
   if (envType === 'production') {
-    // Use database tokens
-    return await getTokenFromDatabase('google-sheets');
+    // Use database tokens - same token works for both Drive and Sheets
+    return await getTokenFromDatabase('google-drive');
   }
 
   if (sheetsConnectionSettings && sheetsConnectionSettings.settings.expires_at && new Date(sheetsConnectionSettings.settings.expires_at).getTime() > Date.now()) {
