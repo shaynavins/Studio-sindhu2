@@ -39,8 +39,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.redirect(url);
   });
 
-  // OAuth callback endpoint
-  app.get("/oauth2callback", async (req, res) => {
+  // OAuth callback endpoint for Drive API
+  app.get("/api/auth/google/callback", async (req, res) => {
     const code = req.query.code as string;
 
     if (!code) {

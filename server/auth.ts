@@ -27,7 +27,7 @@ export function setupAuth(app: Express) {
       {
         clientID: process.env.GOOGLE_CLIENT_ID || 'dummy_client_id',
         clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-        callbackURL: process.env.CALLBACK_URL || 'http://localhost:5000/oauth2callback',
+        callbackURL: process.env.USER_AUTH_CALLBACK_URL || 'http://localhost:5000/auth/google/callback',
       },
       (accessToken, refreshToken, profile, done) => {
         // Check if the email matches the allowed email
@@ -100,7 +100,7 @@ export function setupAuth(app: Express) {
   );
 
   app.get(
-    '/oauth2callback',
+    '/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/login' }),
     (req, res) => {
       res.redirect('/dashboard');
