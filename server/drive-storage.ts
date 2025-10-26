@@ -64,8 +64,11 @@ export class DriveStorage implements IStorage {
     let sheetId: string | null = null;
 
     if (folderId) {
-      // Customer exists, find their sheet
+      // Customer exists, find or create their sheet
       sheetId = await findMeasurementSheet(folderId);
+      if (!sheetId) {
+        sheetId = await createMeasurementSheet(insertCustomer.phone, insertCustomer.name, folderId);
+      }
     } else {
       // Create new customer folder
       folderId = await createCustomerFolder(insertCustomer.phone, insertCustomer.name);
