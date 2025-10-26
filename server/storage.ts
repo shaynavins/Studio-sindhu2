@@ -165,6 +165,14 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getMeasurementsByCustomer(customerId: string): Promise<Measurement[]> {
+    const orders = await this.getOrdersByCustomer(customerId);
+    const orderIds = orders.map(o => o.id);
+    return Array.from(this.measurements.values()).filter(
+      (m) => orderIds.includes(m.orderId)
+    );
+  }
+
   async createMeasurement(insertMeasurement: InsertMeasurement): Promise<Measurement> {
     const id = randomUUID();
     const now = new Date();

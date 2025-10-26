@@ -329,6 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const phone = req.query.phone as string | undefined;
       const orderId = req.query.orderId as string | undefined;
+      const customerId = req.query.customerId as string | undefined;
       
       if (phone) {
         const measurements = await storage.getMeasurementsByPhone(phone);
@@ -336,8 +337,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (orderId) {
         const measurements = await storage.getMeasurementsByOrder(orderId);
         res.json(measurements);
+      } else if (customerId) {
+        const measurements = await storage.getMeasurementsByCustomer(customerId);
+        res.json(measurements);
       } else {
-        res.status(400).json({ error: "phone or orderId query parameter required" });
+        res.status(400).json({ error: "phone, orderId, or customerId query parameter required" });
       }
     } catch (error: any) {
       console.error('Error fetching measurements:', error);

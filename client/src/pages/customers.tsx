@@ -87,8 +87,8 @@ export default function Customers() {
               phone={customer.phone}
               orderStatus="new"
               lastUpdated={getTimeAgo(customer.updatedAt)}
-              onView={() => console.log('View customer:', customer.id)}
-              onEdit={() => setLocation('/new-customer')}
+              onView={() => setLocation(`/customer/${customer.id}`)}
+              onEdit={() => setLocation(`/edit-customer/${customer.id}`)}
             />
           ))}
         </div>

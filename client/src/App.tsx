@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
 import NewCustomer from "@/pages/new-customer";
 import EditCustomer from "@/pages/edit-customer";
+import CustomerDetails from "@/pages/customer-details";
 import NewOrder from "@/pages/new-order";
 import NotFound from "@/pages/not-found";
 import AdminLogin from "@/pages/admin-login";
@@ -44,6 +45,11 @@ function Router() {
       <Route path="/edit-customer/:id">
         <ProtectedRoute>
           <EditCustomer />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/customer/:id">
+        <ProtectedRoute>
+          <CustomerDetails />
         </ProtectedRoute>
       </Route>
       <Route path="/new-order">
