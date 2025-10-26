@@ -79,10 +79,12 @@ export function setupAuth(app: Express) {
       secret: process.env.SESSION_SECRET || 'your-secret-key',
       resave: false,
       saveUninitialized: false,
+      proxy: process.env.NODE_ENV === 'production', // Trust proxy in production
       cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       },
     })
   );

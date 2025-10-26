@@ -6,6 +6,10 @@ import 'dotenv/config';
 
 
 const app = express();
+// Trust proxy for production (Render uses a reverse proxy)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 app.use(express.json());
 declare module 'http' {
   interface IncomingMessage {
