@@ -26,12 +26,12 @@ export default function CustomerDetails() {
   });
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders', { customerId: id }],
+    queryKey: [`/api/orders?customerId=${id}`],
     enabled: !!id,
   });
 
   const { data: measurements = [], isLoading: measurementsLoading } = useQuery<Measurement[]>({
-    queryKey: ['/api/measurements', { customerId: id }],
+    queryKey: [`/api/measurements?customerId=${id}`],
     enabled: !!id,
   });
 
