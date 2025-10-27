@@ -137,11 +137,11 @@ export class DriveStorage implements IStorage {
       customerId: customer.id,
       customerPhone: customer.phone,
       garmentType: m.garmentType,
-      status: 'new' as const,
+      status: (m.status || 'new') as 'new' | 'measuring' | 'cutting' | 'stitching' | 'ready' | 'delivered',
       notes: m.notes || null,
-      deliveryDate: null,
+      deliveryDate: m.deliveryDate ? new Date(m.deliveryDate) : null,
       measurementSetId: null,
-      createdAt: new Date(),
+      createdAt: m.date ? new Date(m.date) : new Date(),
       updatedAt: new Date(),
     }));
   }
@@ -157,11 +157,11 @@ export class DriveStorage implements IStorage {
       customerId: customer.id,
       customerPhone: phone,
       garmentType: m.garmentType,
-      status: 'new' as const,
+      status: (m.status || 'new') as 'new' | 'measuring' | 'cutting' | 'stitching' | 'ready' | 'delivered',
       notes: m.notes || null,
-      deliveryDate: null,
+      deliveryDate: m.deliveryDate ? new Date(m.deliveryDate) : null,
       measurementSetId: null,
-      createdAt: new Date(),
+      createdAt: m.date ? new Date(m.date) : new Date(),
       updatedAt: new Date(),
     }));
   }
