@@ -19,9 +19,19 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 
 interface MeasurementFormData {
   garmentType: string;
+  tailor?: string;
+  workshop?: string;
+  tassels?: string;
+  deliveryDate?: Date;
+  workshopSendDate?: Date;
   chest?: string;
   waist?: string;
   hips?: string;
@@ -42,6 +52,11 @@ export function MeasurementForm({ customerId, onSubmit }: MeasurementFormProps) 
   const form = useForm<MeasurementFormData>({
     defaultValues: {
       garmentType: "",
+      tailor: "",
+      workshop: "",
+      tassels: "",
+      deliveryDate: undefined,
+      workshopSendDate: undefined,
       chest: "",
       waist: "",
       hips: "",
@@ -83,14 +98,169 @@ export function MeasurementForm({ customerId, onSubmit }: MeasurementFormProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="shirt">Shirt</SelectItem>
-                      <SelectItem value="pants">Pants</SelectItem>
-                      <SelectItem value="suit">Suit</SelectItem>
-                      <SelectItem value="dress">Dress</SelectItem>
-                      <SelectItem value="jacket">Jacket</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="blouse">Shirt</SelectItem>
+                      <SelectItem value="skirt">Pants</SelectItem>
+                      
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tailor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tailor</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-tailor">
+                        <SelectValue placeholder="Select tailor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="shahjan">Shahjan</SelectItem>
+                      <SelectItem value="suraj">Suraj</SelectItem>
+                      <SelectItem value="mujamal">Mujamal</SelectItem>
+                      <SelectItem value="raju">Raju</SelectItem>
+                      <SelectItem value="newe-raju">Newe Raju</SelectItem>
+                      <SelectItem value="balram">Balram</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="workshop"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Workshop</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-workshop">
+                        <SelectValue placeholder="Select workshop" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="samulla">Samulla</SelectItem>
+                      <SelectItem value="tirumala">Tirumala</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tassels"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tassels</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-tassels">
+                        <SelectValue placeholder="Select tassels" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="rashida">Rashida</SelectItem>
+                      <SelectItem value="latha">Latha</SelectItem>
+                      <SelectItem value="rathna">Rathna</SelectItem>
+                      <SelectItem value="sashi">Sashi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="deliveryDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Delivery Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          data-testid="select-delivery-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="workshopSendDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Scheduled Send to Workshop</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          data-testid="select-workshop-send-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
