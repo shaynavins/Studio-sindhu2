@@ -1,13 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertOrderSchema, insertMeasurementSchema, oauthTokens } from "@shared/schema";
-import { uploadImageToDrive, addMeasurementToSheet, getMeasurementsFromSheet } from "./google-services";
+import { insertCustomerSchema, insertOrderSchema, insertMeasurementSchema, oauthTokens, scheduledJobs, insertScheduledJobSchema } from "@shared/schema";
+import { uploadImageToDrive, addMeasurementToSheet, getMeasurementsFromSheet, updateOrderStatusInSheet } from "./google-services";
 import multer from "multer";
 import { z } from "zod";
 import { google } from "googleapis";
 import { db } from "./db.js";
 import { eq } from "drizzle-orm";
+import { getPendingJobs, markJobCompleted, getUpcomingJobs, executeJob } from "./scheduler-service.js";
+import { generateWorkshopWhatsAppUrl, createWorkshopOrderMessage } from "./whatsapp-service.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -236,6 +238,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const order = await storage.createOrder(orderData);
       
+      // If workshopSendDate is provided, create a scheduled job
+      if (req.body.workshopSendDate) {
+        const workshopSendDate = new Date(req.body.workshopSendDate);
+        const message = createWorkshopOrderMessage(
+          customer.name,
+          orderNumber,
+          req.body.garmentType
+        );
+        
+        const scheduledJobData = insertScheduledJobSchema.parse({
+          jobType: 'whatsapp',
+          scheduledFor: workshopSendDate,
+          status: 'pending',
+          recipientPhone: '918867636725',
+          message: message,
+          orderId: order.id,
+          measurementId: null,
+        });
+        
+        await db.insert(scheduledJobs).values(scheduledJobData);
+        console.log(`Scheduled WhatsApp message for ${workshopSendDate.toISOString()}`);
+      }
+      
       res.status(201).json({ message: "Measurements saved successfully", order });
     } catch (error: any) {
       console.error('Error saving measurements:', error);
@@ -325,6 +350,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/orders/:orderNumber/status", async (req, res) => {
+    try {
+      const { orderNumber } = req.params;
+      const { customerId, status, deliveryDate } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ error: "Status is required" });
+      }
+
+      // Get customer to find their sheet
+      const customer = await storage.getCustomer(customerId);
+      if (!customer || !customer.sheetId) {
+        return res.status(404).json({ error: "Customer or sheet not found" });
+      }
+
+      // Update the order status in the Google Sheet
+      await updateOrderStatusInSheet(customer.sheetId, orderNumber, status, deliveryDate);
+
+      res.json({ success: true, message: "Order status updated" });
+    } catch (error: any) {
+      console.error('Error updating order status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/measurements", async (req, res) => {
     try {
       const phone = req.query.phone as string | undefined;
@@ -362,6 +412,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(measurements);
     } catch (error: any) {
       console.error('Error fetching measurement history:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get pending scheduled jobs (jobs that are due)
+  app.get("/api/scheduled-jobs/pending", async (req, res) => {
+    try {
+      const jobs = await getPendingJobs();
+      
+      // Generate WhatsApp URLs for each job
+      const jobsWithUrls = jobs.map(job => ({
+        ...job,
+        whatsappUrl: generateWorkshopWhatsAppUrl(job.message)
+      }));
+      
+      res.json(jobsWithUrls);
+    } catch (error: any) {
+      console.error('Error fetching pending jobs:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get upcoming scheduled jobs
+  app.get("/api/scheduled-jobs/upcoming", async (req, res) => {
+    try {
+      const jobs = await getUpcomingJobs();
+      res.json(jobs);
+    } catch (error: any) {
+      console.error('Error fetching upcoming jobs:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark a job as completed
+  app.patch("/api/scheduled-jobs/:id/complete", async (req, res) => {
+    try {
+      await markJobCompleted(req.params.id);
+      res.json({ success: true, message: "Job marked as completed" });
+    } catch (error: any) {
+      console.error('Error completing job:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Manually execute a scheduled job
+  app.post("/api/scheduled-jobs/:id/execute", async (req, res) => {
+    try {
+      await executeJob(req.params.id);
+      res.json({ success: true, message: "Job executed successfully" });
+    } catch (error: any) {
+      console.error('Error executing job:', error);
       res.status(500).json({ error: error.message });
     }
   });

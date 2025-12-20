@@ -220,3 +220,50 @@ export async function getMeasurementsFromSheet(
     deliveryDate: row[12] || undefined
   }));
 }
+
+export async function updateOrderStatusInSheet(
+  sheetId: string,
+  orderNumber: string,
+  status: string,
+  deliveryDate?: string
+): Promise<void> {
+  const sheets = await getGoogleSheetsClient();
+  
+  // Get all rows to find the order
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: 'Orders!A2:M'
+  });
+
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(row => row[0] === orderNumber);
+  
+  if (rowIndex === -1) {
+    throw new Error('Order not found');
+  }
+
+  // Update status (column L) and delivery date (column M) for the found row
+  const actualRowNumber = rowIndex + 2; // +2 because arrays are 0-indexed and we start from row 2
+  
+  const updates: any[] = [
+    {
+      range: `Orders!L${actualRowNumber}`,
+      values: [[status]]
+    }
+  ];
+
+  if (deliveryDate !== undefined) {
+    updates.push({
+      range: `Orders!M${actualRowNumber}`,
+      values: [[deliveryDate]]
+    });
+  }
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: updates
+    }
+  });
+}

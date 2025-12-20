@@ -1,0 +1,239 @@
+{
+  "name": "Email to Calendar Event",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "includeUnread": true,
+          "labelIds": []
+        },
+        "options": {}
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [470, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0.3
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Extract meeting details from this email and return ONLY valid JSON:\n{\n  \"title\": \"meeting title\",\n  \"date\": \"YYYY-MM-DD\",\n  \"start_time\": \"HH:MM\",\n  \"end_time\": \"HH:MM\",\n  \"location\": \"location or 'online'\",\n  \"attendees\": [\"email@example.com\"],\n  \"description\": \"brief summary\"\n}\n\nIf no meeting found, return: {\"no_event\": true}\n\nEmail Subject: {{ $json.subject }}\nEmail Body: {{ $json.snippet || $json.textPlain }}\n\nCurrent date for reference: {{ $now.format('YYYY-MM-DD') }}"
+            }
+          ]
+        },
+        "jsonOutput": true
+      },
+      "id": "openai-extract",
+      "name": "Extract Event Details (AI)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [690, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "2",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and validate\nconst response = $input.first().json;\nlet eventData;\n\ntry {\n  // If response is string, parse it\n  if (typeof response.message === 'string') {\n    eventData = JSON.parse(response.message.content || response.message);\n  } else if (response.message && response.message.content) {\n    eventData = JSON.parse(response.message.content);\n  } else {\n    eventData = response;\n  }\n  \n  // Check if valid event\n  if (eventData.no_event) {\n    return [{ json: { no_event: true } }];\n  }\n  \n  return [{ json: eventData }];\n} catch (error) {\n  console.log('Parse error:', error);\n  return [{ json: { no_event: true, error: error.message } }];\n}\n"
+      },
+      "id": "parse-json",
+      "name": "Parse JSON Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !$json.no_event }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-valid-event",
+      "name": "Valid Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1130, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendarId": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "Primary"
+        },
+        "start": "={{ $json.date }}T{{ $json.start_time }}:00",
+        "end": "={{ $json.date }}T{{ $json.end_time }}:00",
+        "summary": "={{ $json.title }}",
+        "description": "={{ $json.description }}",
+        "location": "={{ $json.location }}",
+        "attendees": "={{ $json.attendees ? $json.attendees.join(',') : '' }}",
+        "options": {
+          "sendUpdates": "all"
+        }
+      },
+      "id": "google-calendar",
+      "name": "Create Google Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [1350, 200],
+      "credentials": {
+        "googleCalendarOAuth2": {
+          "id": "3",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "to": "={{ $node['Gmail Trigger'].json.from }}",
+        "subject": "=Calendar Event Created: {{ $json.title }}",
+        "message": "=✅ Event successfully added to your calendar!\n\n📅 Event: {{ $json.title }}\n🕐 Date: {{ $json.date }}\n⏰ Time: {{ $json.start_time }} - {{ $json.end_time }}\n📍 Location: {{ $json.location }}\n\n✨ This event was automatically created from your email.",
+        "options": {}
+      },
+      "id": "gmail-confirmation",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1570, 200],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-event-found",
+      "name": "No Event Found",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1350, 400]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Gmail Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Event Details (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Event Details (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse JSON Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse JSON Response": {
+      "main": [
+        [
+          {
+            "node": "Valid Event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Event?": {
+      "main": [
+        [
+          {
+            "node": "Create Google Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Event Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Google Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-30T11:52:50.000Z",
+  "versionId": "1"
+}

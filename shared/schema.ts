@@ -53,7 +53,21 @@ export const measurements = pgTable("measurements", {
   inseam: text("inseam"),
   notes: text("notes"),
   sheetRowId: text("sheet_row_id"),
+  workshopSendDate: timestamp("workshop_send_date"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const scheduledJobs = pgTable("scheduled_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobType: text("job_type").notNull(), // 'whatsapp'
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  status: text("status", { enum: ["pending", "completed", "cancelled"] }).notNull().default("pending"),
+  recipientPhone: text("recipient_phone").notNull(),
+  message: text("message").notNull(),
+  orderId: varchar("order_id"),
+  measurementId: varchar("measurement_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const oauthTokens = pgTable("oauth_tokens", {
@@ -91,6 +105,12 @@ export const insertMeasurementSchema = createInsertSchema(measurements).omit({
   createdAt: true,
 });
 
+export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertOAuthTokenSchema = createInsertSchema(oauthTokens).omit({
   id: true,
   createdAt: true,
@@ -105,5 +125,7 @@ export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertMeasurement = z.infer<typeof insertMeasurementSchema>;
 export type Measurement = typeof measurements.$inferSelect;
+export type InsertScheduledJob = z.infer<typeof insertScheduledJobSchema>;
+export type ScheduledJob = typeof scheduledJobs.$inferSelect;
 export type InsertOAuthToken = z.infer<typeof insertOAuthTokenSchema>;
 export type OAuthToken = typeof oauthTokens.$inferSelect;
