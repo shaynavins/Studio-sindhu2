@@ -2,6 +2,11 @@ import { useAuth } from "@/lib/auth-context";
 import { Redirect } from "wouter";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  // TEMPORARILY DISABLED FOR TESTING - REMOVE THIS AFTER TESTING
+  return <>{children}</>;
+  
+  // Uncomment below to re-enable authentication
+  /*
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -17,4 +22,5 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+  */
 }

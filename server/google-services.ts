@@ -121,10 +121,10 @@ export async function createMeasurementSheet(
   // Add header row
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
-    range: 'Orders!A1:M1',
+    range: 'Orders!A1:S1',
     valueInputOption: 'RAW',
     requestBody: {
-      values: [['Order Number', 'Date', 'Garment Type', 'Chest', 'Waist', 'Hips', 'Shoulder', 'Sleeves', 'Length', 'Inseam', 'Notes', 'Status', 'Delivery Date']]
+      values: [['Order Number', 'Date', 'Garment Type', 'Chest', 'Waist', 'Hips', 'Shoulder', 'Sleeves', 'Length', 'Inseam', 'Notes', 'Status', 'Delivery Date', 'Tailor Delivery', 'Tailor Pickup', 'Workshop Delivery', 'Workshop Pickup', 'Tassels Delivery', 'Tassels Pickup']]
     }
   });
 
@@ -158,6 +158,12 @@ export async function addMeasurementToSheet(
     notes?: string;
     status?: string;
     deliveryDate?: string;
+    tailorDeliveryDate?: string;
+    tailorPickupDate?: string;
+    workshopDeliveryDate?: string;
+    workshopPickupDate?: string;
+    tasselsDeliveryDate?: string;
+    tasselsPickupDate?: string;
   }
 ): Promise<number> {
   const sheets = await getGoogleSheetsClient();
@@ -166,7 +172,7 @@ export async function addMeasurementToSheet(
   
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: 'Orders!A:M',
+    range: 'Orders!A:S',
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
@@ -182,7 +188,13 @@ export async function addMeasurementToSheet(
         measurement.inseam || '',
         measurement.notes || '',
         measurement.status || 'new',
-        measurement.deliveryDate || ''
+        measurement.deliveryDate || '',
+        measurement.tailorDeliveryDate || '',
+        measurement.tailorPickupDate || '',
+        measurement.workshopDeliveryDate || '',
+        measurement.workshopPickupDate || '',
+        measurement.tasselsDeliveryDate || '',
+        measurement.tasselsPickupDate || ''
       ]]
     }
   });
@@ -195,12 +207,12 @@ export async function addMeasurementToSheet(
 
 export async function getMeasurementsFromSheet(
   sheetId: string
-): Promise<Array<{orderNumber: string, date?: string, garmentType: string, chest?: string, waist?: string, hips?: string, shoulder?: string, sleeves?: string, length?: string, inseam?: string, notes?: string, status?: string, deliveryDate?: string}>> {
+): Promise<Array<{orderNumber: string, date?: string, garmentType: string, chest?: string, waist?: string, hips?: string, shoulder?: string, sleeves?: string, length?: string, inseam?: string, notes?: string, status?: string, deliveryDate?: string, tailorDeliveryDate?: string, tailorPickupDate?: string, workshopDeliveryDate?: string, workshopPickupDate?: string, tasselsDeliveryDate?: string, tasselsPickupDate?: string}>> {
   const sheets = await getGoogleSheetsClient();
   
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: 'Orders!A2:M'
+    range: 'Orders!A2:S'
   });
 
   const rows = response.data.values || [];
@@ -217,7 +229,13 @@ export async function getMeasurementsFromSheet(
     inseam: row[9] || undefined,
     notes: row[10] || undefined,
     status: row[11] || undefined,
-    deliveryDate: row[12] || undefined
+    deliveryDate: row[12] || undefined,
+    tailorDeliveryDate: row[13] || undefined,
+    tailorPickupDate: row[14] || undefined,
+    workshopDeliveryDate: row[15] || undefined,
+    workshopPickupDate: row[16] || undefined,
+    tasselsDeliveryDate: row[17] || undefined,
+    tasselsPickupDate: row[18] || undefined
   }));
 }
 
@@ -232,7 +250,7 @@ export async function updateOrderStatusInSheet(
   // Get all rows to find the order
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: 'Orders!A2:M'
+    range: 'Orders!A2:S'
   });
 
   const rows = response.data.values || [];

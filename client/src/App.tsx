@@ -18,6 +18,7 @@ import NewOrder from "@/pages/new-order";
 import NotFound from "@/pages/not-found";
 import AdminLogin from "@/pages/admin-login";
 import TailorLogin from "@/pages/tailor-login";
+import TestMeasurements from "@/pages/test-measurements";
 
 function Router() {
   return (
@@ -55,6 +56,11 @@ function Router() {
       <Route path="/new-order">
         <ProtectedRoute>
           <NewOrder />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/test-measurements">
+        <ProtectedRoute>
+          <TestMeasurements />
         </ProtectedRoute>
       </Route>
       <Route component={NotFound} />

@@ -54,6 +54,12 @@ export const measurements = pgTable("measurements", {
   notes: text("notes"),
   sheetRowId: text("sheet_row_id"),
   workshopSendDate: timestamp("workshop_send_date"),
+  tailorDeliveryDate: timestamp("tailor_delivery_date"),
+  tailorPickupDate: timestamp("tailor_pickup_date"),
+  workshopDeliveryDate: timestamp("workshop_delivery_date"),
+  workshopPickupDate: timestamp("workshop_pickup_date"),
+  tasselsDeliveryDate: timestamp("tassels_delivery_date"),
+  tasselsPickupDate: timestamp("tassels_pickup_date"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

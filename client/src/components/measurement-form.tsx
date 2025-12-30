@@ -32,6 +32,12 @@ interface MeasurementFormData {
   tassels?: string;
   deliveryDate?: Date;
   workshopSendDate?: Date;
+  tailorDeliveryDate?: Date;
+  tailorPickupDate?: Date;
+  workshopDeliveryDate?: Date;
+  workshopPickupDate?: Date;
+  tasselsDeliveryDate?: Date;
+  tasselsPickupDate?: Date;
   chest?: string;
   waist?: string;
   hips?: string;
@@ -57,6 +63,12 @@ export function MeasurementForm({ customerId, onSubmit }: MeasurementFormProps) 
       tassels: "",
       deliveryDate: undefined,
       workshopSendDate: undefined,
+      tailorDeliveryDate: undefined,
+      tailorPickupDate: undefined,
+      workshopDeliveryDate: undefined,
+      workshopPickupDate: undefined,
+      tasselsDeliveryDate: undefined,
+      tasselsPickupDate: undefined,
       chest: "",
       waist: "",
       hips: "",
@@ -98,9 +110,11 @@ export function MeasurementForm({ customerId, onSubmit }: MeasurementFormProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="blouse">Shirt</SelectItem>
-                      <SelectItem value="skirt">Pants</SelectItem>
-                      
+                      <SelectItem value="normal_blouse">Normal Blouse</SelectItem>
+                      <SelectItem value="normal_blouse_pp">Normal Blouse with PP</SelectItem>
+                      <SelectItem value="princess_blouse">Princess Blouse</SelectItem>
+                      <SelectItem value="princess_blouse_pp">Princess Blouse with PP</SelectItem>
+                      <SelectItem value="embroidery">Embroidery</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -185,7 +199,7 @@ export function MeasurementForm({ customerId, onSubmit }: MeasurementFormProps) 
               name="deliveryDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Delivery Date</FormLabel>
+                  <FormLabel>Final Delivery Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -222,13 +236,21 @@ export function MeasurementForm({ customerId, onSubmit }: MeasurementFormProps) 
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
 
+        {/* Tailor Dates Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tailor Dates</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
-              name="workshopSendDate"
+              name="tailorDeliveryDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Scheduled Send to Workshop</FormLabel>
+                  <FormLabel>Delivery Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -238,7 +260,238 @@ export function MeasurementForm({ customerId, onSubmit }: MeasurementFormProps) 
                             "w-full pl-3 text-left font-normal",
                             !field.value && "text-muted-foreground"
                           )}
-                          data-testid="select-workshop-send-date"
+                          data-testid="select-tailor-delivery-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tailorPickupDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Pickup Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          data-testid="select-tailor-pickup-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Workshop Dates Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Workshop Dates</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="workshopDeliveryDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Delivery Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          data-testid="select-workshop-delivery-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="workshopPickupDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Pickup Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          data-testid="select-workshop-pickup-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Tassels Dates Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tassels Dates</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="tasselsDeliveryDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Delivery Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          data-testid="select-tassels-delivery-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tasselsPickupDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Pickup Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          data-testid="select-tassels-pickup-date"
                         >
                           {field.value ? (
                             format(field.value, "PPP")

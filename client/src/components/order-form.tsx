@@ -209,12 +209,11 @@ export function OrderForm({ customerPhone: initialPhone, onSubmit }: OrderFormPr
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="shirt">Shirt</SelectItem>
-                      <SelectItem value="pants">Pants</SelectItem>
-                      <SelectItem value="suit">Suit</SelectItem>
-                      <SelectItem value="dress">Dress</SelectItem>
-                      <SelectItem value="jacket">Jacket</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="normal_blouse">Normal Blouse</SelectItem>
+                      <SelectItem value="normal_blouse_pp">Normal Blouse with PP</SelectItem>
+                      <SelectItem value="princess_blouse">Princess Blouse</SelectItem>
+                      <SelectItem value="princess_blouse_pp">Princess Blouse with PP</SelectItem>
+                      <SelectItem value="embroidery">Embroidery</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
